@@ -143,11 +143,10 @@ SELECT distinct_id
 -- 기존 컬렉템 BU 
 
 WITH crm_bu AS ( -- WITH절을 사용하여 기존에 컬렉템 구매를 한 유저를 필터 
-       SELECT distinct_id,
-       argMax(properties.$geoip_country_name, timestamp) AS country -- 유저의 마지막 접속 지역을 가져오는 함수
+       SELECT distinct_id
+              , argMax(properties.$geoip_country_name, timestamp) AS country -- 유저의 마지막 접속 지역을 가져오는 함수
          FROM events
-        WHERE  (length(distinct_id) = 24 AND length(person.properties.$app_version) > 0) -- 잘못된 형식의 유저 서포트 값 제외 
-        -- (distinct_id의 길이가 24이고, person.properties.$app_version의 길이가 0보다 큰 유저 필터링)
+        WHERE (length(distinct_id) = 24 AND length(person.properties.$app_version) > 0) -- 잘못된 형식의 유저 서포트 값 제외 (distinct_id의 길이가 24이고, person.properties.$app_version의 길이가 0보다 큰 유저 필터링)
          AND (
              (event = 'collectem_purchase' -- 컬렉템 구매시 남는 이벤트 
               AND timestamp >= '2024-07-01 16:00:00' -- 시작 시간 입력 
@@ -179,10 +178,9 @@ WITH crm_bu AS ( -- WITH절을 사용하여 기존에 컬렉템 구매를 한 �
               )
        GROUP BY distinct_id
        )
-
 SELECT DISTINCT distinct_id
-      , CASE WHEN country = 'South Korea' THEN 'KR' -- 유저의 마지막 접속 지역이 'South Korea'이면 'KR'로 분류
-             WHEN country = 'Japan' THEN 'JP' -- 유저의 마지막 접속 지역이 'Japan'이면 'JP'로 분류
-             ELSE 'EN' -- 그 외의 국가는 'EN'으로 분류
-       END AS Language
+       , CASE WHEN country = 'South Korea' THEN 'KR' -- 유저의 마지막 접속 지역이 'South Korea'이면 'KR'로 분류
+              WHEN country = 'Japan' THEN 'JP' -- 유저의 마지막 접속 지역이 'Japan'이면 'JP'로 분류
+              ELSE 'EN' -- 그 외의 국가는 'EN'으로 분류
+          END AS Language
 FROM crm_bu
