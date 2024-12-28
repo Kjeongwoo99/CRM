@@ -184,3 +184,63 @@ SELECT DISTINCT distinct_id
               ELSE 'EN' -- 그 외의 국가는 'EN'으로 분류
           END AS Language
 FROM crm_bu
+
+-- ITZY 1차 CRM 대상자: 젬 소모 상위 20% VIP 중 기존 컬렉템 BU가 아니고, ITZY 아이템 미구매 유저
+   
+WITH crm_bu AS (
+    SELECT DISTINCT distinct_id
+           , argMax(properties.$geoip_country_name, timestamp) AS country
+      FROM events
+     WHERE event = 'collectem_purchase'
+       AND properties.zemAmount > 0
+       AND (
+           (timestamp >= '2024-07-01 16:00:00' AND timestamp < '2024-08-05 00:00:00' AND properties.eventCode = 'KUROMI') OR
+           (timestamp >= '2024-02-27 16:00:00' AND timestamp < '2024-04-01 00:00:00' AND properties.eventCode = 'rilakkuma_0215') OR
+           (timestamp >= '2024-08-16' AND timestamp < '2024-09-19 00:00:00' AND properties.eventCode = 'aespa') OR
+           (timestamp >= '2024-08-30 16:00:00' AND properties.eventCode = 'mickyandfriends_0830') OR
+           (timestamp >= '2024-10-01' AND properties.eventCode = 'kitty_1001') OR
+           (timestamp >= '2021-10-18' AND properties.eventCode = 'itzy')
+           )
+     GROUP BY distinct_id
+    ),
+itzy_purchasers AS (
+    SELECT DISTINCT distinct_id
+      FROM events
+     WHERE event = 'item_purchase'
+       AND timestamp >= '2023-01-01 00:00:00'
+       AND properties.brands IN ('["itzy"]')
+       AND properties.isBrand = true
+       AND properties.cashType = 'ZEM'
+    ),
+iap_revenue AS (
+  SELECT distinct_id
+         , sum(toFloat(properties.priceTier)) AS total_purchases
+         , argMax(properties.$geoip_country_name, timestamp) AS country
+    FROM events
+   WHERE timestamp >= '2024-09-01' 
+     AND timestamp < '2024-10-01'
+     AND event = 'in_app_purchase'
+   GROUP BY distinct_id
+)
+
+-- 메인 쿼리: 인앱결제 10불 이상, crm_bu, itzy_purchasers 제외
+SELECT distinct_id
+       , CASE 
+            WHEN country = 'South Korea' THEN 'KR'
+            WHEN country = 'Japan' THEN 'JP'
+            ELSE 'EN' 
+          END AS Language
+  FROM iap_revenue
+ WHERE total_purchases > 10
+   AND distinct_id NOT IN (
+        SELECT distinct_id 
+          FROM crm_bu
+        )
+   AND distinct_id NOT IN (
+        SELECT distinct_id 
+          FROM itzy_purchasers
+       )
+
+
+
+    
